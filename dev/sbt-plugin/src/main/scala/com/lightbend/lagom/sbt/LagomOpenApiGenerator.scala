@@ -15,22 +15,20 @@ object LagomOpenApiGenerator {
   def lagomOpenAPIGenerateDescriptorTask = Def.task {
     val packageName = organization.value
     val specFiles: Seq[File] = (sources in lagomOpenAPIGenerateDescriptor).value
-    val outpuDirectory = (target in lagomOpenAPIGenerateDescriptor).value
+    val outputDirectory = (target in lagomOpenAPIGenerateDescriptor).value
 
     specFiles.flatMap { specFile =>
       val opts = new CodegenConfigurator()
         .setLang("com.lightbend.lagom.sbt.LagomJavaCodegen")
         .setInputSpec(specFile.getAbsolutePath)
-        .setOutputDir(outpuDirectory.getAbsolutePath)
+        .setOutputDir(outputDirectory.getAbsolutePath)
         .setApiPackage(packageName + ".api")
         .setInvokerPackage(packageName + ".invoker")
         .setModelPackage(packageName + ".model")
-      //        .setTemplateDir()
 
       new DefaultGenerator().opts(opts.toClientOptInput).generate().asScala
 
     }
-
   }
-
 }
+

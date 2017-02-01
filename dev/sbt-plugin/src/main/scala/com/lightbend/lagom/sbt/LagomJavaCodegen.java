@@ -30,6 +30,15 @@ public class LagomJavaCodegen extends AbstractJavaCodegen {
 
         modelTemplateFiles.put("model.mustache", ".java");
         apiTemplateFiles.put("api.mustache", ".java");
+        modelDocTemplateFiles.remove("model_doc.mustache");
+        apiDocTemplateFiles.remove("api_doc.mustache");
+
+
+        // TODO: use immutables
+        instantiationTypes.put("array", "ArrayList");
+        instantiationTypes.put("map", "HashMap");
+
+
         apiPackage = "io.swagger.api";
         modelPackage = "io.swagger.model";
 
@@ -39,16 +48,8 @@ public class LagomJavaCodegen extends AbstractJavaCodegen {
         // clear model and api doc template as this codegen
         // does not support auto-generated markdown doc at the moment
         //TODO: add doc templates
-        modelDocTemplateFiles.remove("model_doc.mustache");
-        apiDocTemplateFiles.remove("api_doc.mustache");
 
         additionalProperties.put("title", "Lagom Descriptor");
-
-        typeMapping.put("date", "LocalDate");
-        typeMapping.put("DateTime", "Instant");
-
-        importMapping.put("LocalDate", "java.time.LocalDate");
-        importMapping.put("Instant", "java.time.Instant");
 
         super.embeddedTemplateDir = templateDir = TEMPLATE_DIRECTORY_NAME;
 
@@ -77,10 +78,6 @@ public class LagomJavaCodegen extends AbstractJavaCodegen {
 
         // Don't need extra files provided by Lagom & Java Codegen
         supportingFiles.clear();
-
-        // TODO: remove these
-        writeOptional(outputFolder, new SupportingFile("RestApplication.mustache",
-                (sourceFolder + '/' + invokerPackage).replace(".", "/"), "RestApplication.java"));
 
     }
 
