@@ -990,6 +990,7 @@ lazy val `sbt-plugin` = (project in file("dev") / "sbt-plugin")
     libraryDependencies ++= Seq(
       // And this is needed to silence the datastax driver logging
       "org.slf4j" % "slf4j-nop" % "1.7.14",
+      "io.swagger" % "swagger-codegen" % "2.2.1",
       scalaTest % Test
     ),
     addSbtPlugin(("com.typesafe.play" % "sbt-plugin" % PlayVersion).exclude("org.slf4j","slf4j-simple")),

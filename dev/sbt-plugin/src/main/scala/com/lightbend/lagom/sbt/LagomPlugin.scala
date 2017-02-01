@@ -23,6 +23,7 @@ import sbt.plugins.{ CorePlugin, IvyPlugin, JvmPlugin }
  */
 object Lagom extends AutoPlugin {
   override def requires = LagomReloadableService && JavaAppPackaging
+
   val autoImport = LagomImport
 }
 
@@ -35,24 +36,54 @@ object Lagom extends AutoPlugin {
  */
 object LagomJava extends AutoPlugin {
   override def requires = Lagom
+
   override def trigger = noTrigger
 
   import LagomPlugin.autoImport._
 
-  override def projectSettings = LagomSettings.defaultSettings ++ Seq(
-    Keys.run in Compile := {
-      val service = lagomRun.value
-      val log = state.value.log
-      SbtConsoleHelper.printStartScreen(log, service)
-      SbtConsoleHelper.blockUntilExit(log, Internal.Keys.interactionMode.value, service._2)
-    },
-    libraryDependencies ++= Seq(
-      LagomImport.lagomJavadslServer,
-      PlayImport.component("play-netty-server")
-    ) ++ LagomImport.lagomJUnitDeps ++ devServiceLocatorDependencies.value,
-    // Configure sbt junit-interface: https://github.com/sbt/junit-interface
-    testOptions in Test += Tests.Argument(TestFrameworks.JUnit, "-v", "-a")
-  )
+  override def projectSettings =
+    LagomSettings.defaultSettings ++
+      inConfig(Compile)(openApiSettings) ++
+      inConfig(Test)(openApiSettings) ++
+      Seq(
+        Keys.run in Compile := {
+          val service = lagomRun.value
+          val log = state.value.log
+          SbtConsoleHelper.printStartScreen(log, service)
+          SbtConsoleHelper.blockUntilExit(log, Internal.Keys.interactionMode.value, service._2)
+        },
+        libraryDependencies ++= Seq(
+          LagomImport.lagomJavadslServer,
+          PlayImport.component("play-netty-server")
+        ) ++ LagomImport.lagomJUnitDeps ++ devServiceLocatorDependencies.value,
+        // Configure sbt junit-interface: https://github.com/sbt/junit-interface
+        testOptions in Test += Tests.Argument(TestFrameworks.JUnit, "-v", "-a")
+      )
+
+  import LagomImport._
+  import LagomReloadableService.autoImport.lagomWatchDirectories
+
+  val openApiSettings = Seq(
+    sourceDirectory in lagomOpenAPIGenerateDescriptor := sourceDirectory.value / "openapi",
+    target in lagomOpenAPIGenerateDescriptor :=
+      crossTarget.value / "openapi" / Defaults.nameForSrc(configuration.value.name),
+    lagomOpenAPIGenerateDescriptor := LagomOpenApiGenerator.lagomOpenAPIGenerateDescriptorTask.value,
+    sourceGenerators <+= lagomOpenAPIGenerateDescriptor,
+    managedSourceDirectories += (target in lagomOpenAPIGenerateDescriptor).value,
+    watchSources in Defaults.ConfigGlobal <++= sources in lagomOpenAPIGenerateDescriptor,
+    lagomWatchDirectories in Defaults.ConfigGlobal ++= unmanagedSourceDirectories.value
+  ) ++
+    inTask(lagomOpenAPIGenerateDescriptor)(
+      Seq(
+        managedSourceDirectories := Nil,
+        unmanagedSourceDirectories := Seq(sourceDirectory.value),
+        includeFilter := GlobFilter("*.json") || GlobFilter("*.yaml"),
+        sourceDirectories := unmanagedSourceDirectories.value ++ managedSourceDirectories.value,
+        unmanagedSources <<= Defaults.collectFiles(sourceDirectories, includeFilter, excludeFilter),
+        managedSources := Nil,
+        sources := managedSources.value ++ unmanagedSources.value
+      )
+    )
 
   // service locator dependencies are injected into services only iff dev service locator is enabled
   private lazy val devServiceLocatorDependencies = Def.setting {
@@ -76,6 +107,7 @@ object LagomJava extends AutoPlugin {
  */
 object LagomScala extends AutoPlugin {
   override def requires = Lagom
+
   override def trigger = noTrigger
 
   import LagomPlugin.autoImport._
@@ -106,6 +138,7 @@ object LagomScala extends AutoPlugin {
  */
 object LagomPlay extends AutoPlugin {
   override def requires = LagomReloadableService && Play
+
   override def trigger = noTrigger
 
   import LagomReloadableService.autoImport._
@@ -127,6 +160,7 @@ object LagomPlay extends AutoPlugin {
  */
 object LagomPlayJava extends AutoPlugin {
   override def requires = LagomPlay && PlayJava
+
   override def trigger = allRequirements
 
   override def projectSettings = Seq(
@@ -148,6 +182,7 @@ object LagomPlayJava extends AutoPlugin {
  */
 object LagomPlayScala extends AutoPlugin {
   override def requires = LagomPlay && PlayScala
+
   override def trigger = allRequirements
 
   override def projectSettings = Seq(
@@ -160,6 +195,7 @@ object LagomPlayScala extends AutoPlugin {
  */
 object LagomExternalProject extends AutoPlugin {
   override def requires = LagomPlugin
+
   override def trigger = noTrigger
 
   import LagomPlugin.autoImport._
@@ -182,6 +218,7 @@ object LagomExternalProject extends AutoPlugin {
  */
 object LagomReloadableService extends AutoPlugin {
   override def requires = LagomPlugin
+
   override def trigger = noTrigger
 
   object autoImport {
@@ -257,6 +294,7 @@ object LagomReloadableService extends AutoPlugin {
  * Any service that can be run in Lagom should enable this plugin.
  */
 object LagomPlugin extends AutoPlugin {
+
   import scala.concurrent.duration._
 
   override def requires = JvmPlugin
@@ -309,7 +347,7 @@ object LagomPlugin extends AutoPlugin {
     val lagomKafkaPort = settingKey[Int]("Port used by the local kafka broker")
     val lagomKafkaAddress = settingKey[String]("Address of the kafka brokers (comma-separated list)")
 
-    /** Allows to integrate an external Lagom project in the current build, so that when runAll is run, this service is also started.*/
+    /** Allows to integrate an external Lagom project in the current build, so that when runAll is run, this service is also started. */
     def lagomExternalProject(name: String, module: ModuleID): Project =
       Project(name, file("target") / "lagom-external-projects" / name).
         enablePlugins(LagomExternalProject).
@@ -501,8 +539,8 @@ object LagomPlugin extends AutoPlugin {
               if (propertiesFile.exists()) {
                 log.debug {
                   """You have provided an absolute path to a Kafka properties file. I will use the provided path,
-                   | but consider using a relative path instead of an absolute one. If you decide to use a relative path,
-                   | make sure the provided path is relative to this project's build root directory.""".stripMargin
+                    | but consider using a relative path instead of an absolute one. If you decide to use a relative path,
+                    | make sure the provided path is relative to this project's build root directory.""".stripMargin
                 }
                 file
               } else {
@@ -512,9 +550,9 @@ object LagomPlugin extends AutoPlugin {
                 else {
                   log.warn {
                     s"""No properties file can be found at the provided path ${propertiesFile.getPath}. Hence, the local Kafka
-                      | server will be started with the default server.properties included in Lagom. To remove this warning, you
-                      | shall update the path provided in the sbt key ${lagomKafkaPropertiesFile.key.label} to point an existing
-                      | properties file.""".stripMargin
+                       | server will be started with the default server.properties included in Lagom. To remove this warning, you
+                       | shall update the path provided in the sbt key ${lagomKafkaPropertiesFile.key.label} to point an existing
+                       | properties file.""".stripMargin
                   }
                   None
                 }
@@ -620,6 +658,7 @@ object LagomLog4j2 extends AutoPlugin {
 
 private[sbt] object SbtConsoleHelper {
   private val consoleHelper = new ConsoleHelper(new Colors("sbt.log.noformat"))
+
   def printStartScreen(log: Logger, services: (String, DevServer)*): Unit =
     consoleHelper.printStartScreen(new SbtLoggerProxy(log), services.map {
       case (name, service) => name -> service.url()
@@ -640,17 +679,21 @@ private[sbt] object SbtConsoleHelper {
 }
 
 /**
- *  This is useful for testing, as it allows to start and stop the servers programmatically
- *  (and not on user's input, as it's usually done in development mode).
+ * This is useful for testing, as it allows to start and stop the servers programmatically
+ * (and not on user's input, as it's usually done in development mode).
  */
 object NonBlockingInteractionMode extends PlayNonBlockingInteractionMode {
+
   object NullLogger extends Logger {
     def trace(t: => Throwable): Unit = ()
+
     def success(message: => String): Unit = ()
+
     def log(level: Level.Value, message: => String): Unit = ()
   }
 
   import scala.collection.immutable.HashSet
+
   // Note: all accesses to this variable are guarded by this' class instance lock.
   private var runningServers: Set[Closeable] = HashSet.empty
 
