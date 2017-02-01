@@ -5,6 +5,7 @@ package com.lightbend.lagom.sbt;
 
 import io.swagger.codegen.*;
 import io.swagger.codegen.languages.AbstractJavaCodegen;
+import io.swagger.models.Model;
 import io.swagger.models.Operation;
 import io.swagger.models.Swagger;
 import io.swagger.util.Json;
@@ -16,6 +17,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
 
 public class LagomJavaCodegen extends AbstractJavaCodegen {
 
@@ -71,6 +73,16 @@ public class LagomJavaCodegen extends AbstractJavaCodegen {
         cliOptions.add(library);
 
     }
+
+    @Override
+    public CodegenOperation fromOperation(String path, String httpMethod, Operation operation, Map<String, Model> definitions, Swagger swagger) {
+        CodegenOperation op = super.fromOperation(path, httpMethod, operation, definitions, swagger);
+
+        op.path = op.path.replaceAll("\\{([^}]*)\\}", ":$1");
+
+        return op;
+    }
+
 
     @Override
     public void processOpts() {
