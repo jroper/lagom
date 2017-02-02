@@ -8,6 +8,7 @@ import com.lightbend.lagom.javadsl.api.Descriptor;
 import com.lightbend.lagom.javadsl.api.Service;
 import com.lightbend.lagom.javadsl.api.ServiceCall;
 import com.lightbend.lagom.javadsl.api.transport.Method;
+import org.pcollections.PSequence;
 
 import java.util.Optional;
 
@@ -47,6 +48,7 @@ public interface BlogService extends Service {
     ServiceCall<NotUsed, NotUsed> getPosts(String blogId, Optional<Integer> pageNo, Optional<Integer> pageSize);
     ServiceCall<NotUsed, NotUsed> getPost(String blogId, long postId);
     ServiceCall<NotUsed, NotUsed> getComment(String blogId, long postId, long commentId);
+    ServiceCall<NotUsed, NotUsed> getByTags(String blogId, PSequence<String> tags);
 
     @Override
     default Descriptor descriptor() {
@@ -54,7 +56,8 @@ public interface BlogService extends Service {
                 restCall(Method.GET, "/blogs/:blogId", this::getBlog),
                 restCall(Method.GET, "/blogs/:blogId/posts?pageNo&pageSize", this::getPosts),
                 restCall(Method.GET, "/blogs/:blogId/posts/:postId", this::getPost),
-                restCall(Method.GET, "/blogs/:blogId/posts/:postId/comments/:commentId", this::getComment)
+                restCall(Method.GET, "/blogs/:blogId/posts/:postId/comments/:commentId", this::getComment),
+                restCall(Method.GET, "/blog/:blogId/tags?tags", this::getByTags)
         );
     }
 }

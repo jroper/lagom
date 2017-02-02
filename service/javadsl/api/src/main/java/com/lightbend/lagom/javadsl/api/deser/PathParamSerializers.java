@@ -4,6 +4,7 @@
 package com.lightbend.lagom.javadsl.api.deser;
 
 import com.lightbend.lagom.internal.javadsl.api.UnresolvedOptionalPathParamSerializer;
+import com.lightbend.lagom.internal.javadsl.api.UnresolvedSequencePathParamSerializer;
 import org.pcollections.PSequence;
 import org.pcollections.TreePVector;
 
@@ -61,6 +62,29 @@ public final class PathParamSerializers {
         };
     }
 
+    public static <Param> PathParamSerializer<PSequence<Param>> sequence(String name, Function<String, Param> deserialize,
+            Function<Param, String> serialize) {
+        return new NamedPathParamSerializer<PSequence<Param>>("Sequence(" + name + ")") {
+            @Override
+            public PSequence<String> serialize(PSequence<Param> parameters) {
+                PSequence<String> result = TreePVector.empty();
+                for (Param param: parameters) {
+                    result = result.plus(serialize.apply(param));
+                }
+                return result;
+            }
+
+            @Override
+            public PSequence<Param> deserialize(PSequence<String> parameters) {
+                PSequence<Param> result = TreePVector.empty();
+                for (String param: parameters) {
+                    result = result.plus(deserialize.apply(param));
+                }
+                return result;
+            }
+        };
+    }
+
     /**
      * A String path param serializer.
      */
@@ -93,6 +117,11 @@ public final class PathParamSerializers {
      * A generic (unresolved) optional serializer.
      */
     public static final PathParamSerializer<Optional<Object>> OPTIONAL = new UnresolvedOptionalPathParamSerializer<>();
+
+    /**
+     * A generic (unresolved) psequence serializer.
+     */
+    public static final PathParamSerializer<PSequence<Object>> SEQUENCE = new UnresolvedSequencePathParamSerializer<>();
 
     private static abstract class NamedPathParamSerializer<Param> implements PathParamSerializer<Param> {
         private final String name;

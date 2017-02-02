@@ -19,6 +19,7 @@ import com.lightbend.lagom.api.mock.ScalaMockService
 import com.lightbend.lagom.api.mock.ScalaMockServiceWrong
 import com.lightbend.lagom.internal.javadsl.api.{ JacksonPlaceholderExceptionSerializer, JacksonPlaceholderSerializerFactory, MethodServiceCallHolder, ServiceReader }
 import com.lightbend.lagom.javadsl.api.{ Descriptor, Service, ServiceCall }
+import org.pcollections.TreePVector
 
 import scala.reflect.ClassTag
 
@@ -108,6 +109,10 @@ class ServiceReaderSpec extends WordSpec with Matchers with Inside {
       val commentCall = descriptor.calls().get(3)
       deserializeParams(commentCall, Seq(Seq("some name"), Seq("10"), Seq("20"))) should ===(Seq("some name", 10L, 20L))
       serializeArgs(commentCall, Seq("some name", 10L, 20L)) should ===(Seq(Seq("some name"), Seq("10"), Seq("20")))
+
+      val tagsCall = descriptor.calls().get(4)
+      deserializeParams(tagsCall, Seq(Seq("some name"), Seq("a", "b"))) should ===(Seq("some name", TreePVector.singleton("a").plus("b")))
+      serializeArgs(tagsCall, Seq("some name", TreePVector.singleton("a").plus("b"))) should ===(Seq(Seq("some name"), Seq("a", "b")))
     }
 
   }
