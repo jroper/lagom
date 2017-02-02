@@ -35,7 +35,7 @@ object Lagom extends AutoPlugin {
  * }}}
  */
 object LagomJava extends AutoPlugin {
-  override def requires = Lagom
+  override def requires = Lagom && LagomOpenApiPlugin
 
   override def trigger = noTrigger
 
@@ -43,8 +43,6 @@ object LagomJava extends AutoPlugin {
 
   override def projectSettings =
     LagomSettings.defaultSettings ++
-      inConfig(Compile)(openApiSettings) ++
-      inConfig(Test)(openApiSettings) ++
       Seq(
         Keys.run in Compile := {
           val service = lagomRun.value
@@ -60,8 +58,32 @@ object LagomJava extends AutoPlugin {
         testOptions in Test += Tests.Argument(TestFrameworks.JUnit, "-v", "-a")
       )
 
-  import LagomImport._
-  import LagomReloadableService.autoImport.lagomWatchDirectories
+  // service locator dependencies are injected into services only iff dev service locator is enabled
+  private lazy val devServiceLocatorDependencies = Def.setting {
+    if (LagomPlugin.autoImport.lagomServiceLocatorEnabled.value)
+      Seq(
+        LagomImport.component("lagom-service-registry-client"),
+        LagomImport.component("lagom-service-registration")
+      ).map(_ % Internal.Configs.DevRuntime)
+    else
+      Seq.empty
+  }
+
+}
+
+object LagomOpenApiPlugin extends AutoPlugin {
+
+  object autoImport {
+    val lagomOpenAPIGenerateDescriptor = taskKey[Seq[File]]("Generate Lagom Descriptors from OpenAPI specs.")
+  }
+
+  import autoImport._
+
+  override def trigger = noTrigger
+
+  override def requires = JvmPlugin
+
+  override def projectSettings = inConfig(Compile)(openApiSettings) ++ inConfig(Test)(openApiSettings)
 
   val openApiSettings = Seq(
     sourceDirectory in lagomOpenAPIGenerateDescriptor := sourceDirectory.value / "openapi",
@@ -71,8 +93,7 @@ object LagomJava extends AutoPlugin {
     sourceGenerators <+= lagomOpenAPIGenerateDescriptor,
     // TODO: review managedSources
     managedSourceDirectories += (target in lagomOpenAPIGenerateDescriptor).value / "java",
-    watchSources in Defaults.ConfigGlobal <++= sources in lagomOpenAPIGenerateDescriptor,
-    lagomWatchDirectories in Defaults.ConfigGlobal ++= unmanagedSourceDirectories.value
+    watchSources in Defaults.ConfigGlobal <++= sources in lagomOpenAPIGenerateDescriptor
   ) ++
     inTask(lagomOpenAPIGenerateDescriptor)(
       Seq(
@@ -85,18 +106,6 @@ object LagomJava extends AutoPlugin {
         sources := managedSources.value ++ unmanagedSources.value
       )
     )
-
-  // service locator dependencies are injected into services only iff dev service locator is enabled
-  private lazy val devServiceLocatorDependencies = Def.setting {
-    if (LagomPlugin.autoImport.lagomServiceLocatorEnabled.value)
-      Seq(
-        LagomImport.component("lagom-service-registry-client"),
-        LagomImport.component("lagom-service-registration")
-      ).map(_ % Internal.Configs.DevRuntime)
-    else
-      Seq.empty
-  }
-
 }
 
 /**

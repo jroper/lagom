@@ -47,8 +47,6 @@ object LagomImport {
   val lagomScaladslPubSub = component("lagom-scaladsl-pubsub")
   val lagomScaladslTestKit = component("lagom-scaladsl-testkit") % Test
 
-  val lagomOpenAPIGenerateDescriptor = taskKey[Seq[File]]("Generate Lagom Descriptors from OpenAPI specs.")
-
   val lagomJUnitDeps = Seq(
     "junit" % "junit" % "4.12" % Test,
     "com.novocode" % "junit-interface" % "0.11" % Test

@@ -3,7 +3,7 @@
  */
 package com.lightbend.lagom.sbt
 
-import com.lightbend.lagom.sbt.LagomImport._
+import com.lightbend.lagom.sbt.LagomOpenApiPlugin.autoImport._
 import io.swagger.codegen._
 import io.swagger.codegen.config.CodegenConfigurator
 import sbt.Keys._
