@@ -89,23 +89,35 @@ object LagomOpenApiPlugin extends AutoPlugin {
 
   val openApiSettings = Seq(
     sourceDirectory in lagomOpenAPIGenerateDescriptor := sourceDirectory.value / "openapi",
+    resourceDirectory in lagomOpenAPIGenerateDescriptor := sourceDirectory.value / "openapi",
+
     target in lagomOpenAPIGenerateDescriptor :=
       crossTarget.value / "openapi" / Defaults.nameForSrc(configuration.value.name),
     lagomOpenAPIGenerateDescriptor := LagomOpenApiGenerator.lagomOpenAPIGenerateDescriptorTask.value,
     sourceGenerators <+= lagomOpenAPIGenerateDescriptor,
     // TODO: review managedSources
     managedSourceDirectories += (target in lagomOpenAPIGenerateDescriptor).value / "java",
+    unmanagedResourceDirectories += (resourceDirectory in lagomOpenAPIGenerateDescriptor).value,
     watchSources in Defaults.ConfigGlobal <++= sources in lagomOpenAPIGenerateDescriptor
   ) ++
     inTask(lagomOpenAPIGenerateDescriptor)(
       Seq(
+        includeFilter := GlobFilter("*.json") || GlobFilter("*.yaml"),
+
         managedSourceDirectories := Nil,
         unmanagedSourceDirectories := Seq(sourceDirectory.value),
-        includeFilter := GlobFilter("*.json") || GlobFilter("*.yaml"),
         sourceDirectories := unmanagedSourceDirectories.value ++ managedSourceDirectories.value,
         unmanagedSources <<= Defaults.collectFiles(sourceDirectories, includeFilter, excludeFilter),
         managedSources := Nil,
-        sources := managedSources.value ++ unmanagedSources.value
+        sources := managedSources.value ++ unmanagedSources.value,
+
+        managedResourceDirectories := Nil,
+        unmanagedResourceDirectories := Seq(resourceDirectory.value),
+        resourceDirectories := unmanagedResourceDirectories.value ++ managedResourceDirectories.value,
+        unmanagedResources <<= Defaults.collectFiles(resourceDirectories, includeFilter, excludeFilter),
+        managedResources := Nil,
+        resources := managedResources.value ++ unmanagedResources.value
+
       )
     )
 }
