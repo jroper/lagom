@@ -31,4 +31,3 @@ object LagomOpenApiGenerator {
     }
   }
 }
-
