@@ -83,7 +83,9 @@ object LagomOpenApiPlugin extends AutoPlugin {
 
   override def requires = JvmPlugin
 
-  override def projectSettings = inConfig(Compile)(openApiSettings) ++ inConfig(Test)(openApiSettings)
+  override def projectSettings = inConfig(Compile)(openApiSettings) ++ inConfig(Test)(openApiSettings) ++ Seq(
+    libraryDependencies += "io.swagger" % "swagger-annotations" % "1.5.12"
+  )
 
   val openApiSettings = Seq(
     sourceDirectory in lagomOpenAPIGenerateDescriptor := sourceDirectory.value / "openapi",
