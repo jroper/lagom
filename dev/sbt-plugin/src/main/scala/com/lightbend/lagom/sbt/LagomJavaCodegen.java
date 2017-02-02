@@ -5,17 +5,18 @@ package com.lightbend.lagom.sbt;
 
 import io.swagger.codegen.*;
 import io.swagger.codegen.languages.AbstractJavaCodegen;
+import io.swagger.models.Model;
 import io.swagger.models.Operation;
 import io.swagger.models.Swagger;
+import io.swagger.models.properties.ArrayProperty;
+import io.swagger.models.properties.MapProperty;
+import io.swagger.models.properties.Property;
 import io.swagger.util.Json;
 import org.apache.commons.io.FileUtils;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class LagomJavaCodegen extends AbstractJavaCodegen {
 
@@ -79,13 +80,15 @@ public class LagomJavaCodegen extends AbstractJavaCodegen {
         // Don't need extra files provided by Lagom & Java Codegen
         supportingFiles.clear();
 
+        // Use pcollections
+        typeMapping.put("array", "org.pcollections.PSequence");
+        typeMapping.put("map", "org.pcollections.PMap");
     }
 
 
     @Override
     public CodegenType getTag() {
-        // TODO: review.
-        return CodegenType.DOCUMENTATION;
+        return CodegenType.OTHER;
     }
 
     @Override
@@ -121,6 +124,10 @@ public class LagomJavaCodegen extends AbstractJavaCodegen {
         co.baseName = basePath;
     }
 
+    private boolean safeValue(Boolean value) {
+        return value != null && value;
+    }
+
     @Override
     public void postProcessModelProperty(CodegenModel model, CodegenProperty property) {
         super.postProcessModelProperty(model, property);
@@ -130,6 +137,51 @@ public class LagomJavaCodegen extends AbstractJavaCodegen {
         model.imports.remove("ToStringSerializer");
         model.imports.remove("JsonValue");
         model.imports.remove("JsonProperty");
+
+        if (safeValue(property.required) && !isListOrContainer(property)) {
+            property.vendorExtensions.put("requiredByBuilder", true);
+        }
+
+        // We've messed things up in the case of optional enums, fix that
+        {
+            String optionalType = (String) property.vendorExtensions.get("optionalType");
+            if (optionalType != null) {
+                if (property.isEnum) {
+                    // The swagger codegen approach to enums is such an awful hack, rather than creating a descriptor
+                    // specifically for the enum, and making the property just the type of the enum, they create this
+                    // extra datatypeWithEnum field, which is just stupid. So we change to make an additional property
+                    // that we attach to this one that is used to describe how to create the enum.
+                    CodegenProperty enumProperty = property.clone();
+                    enumProperty.vendorExtensions = new HashMap<>(property.vendorExtensions);
+                    enumProperty.vendorExtensions.remove("optionalType");
+                    enumProperty.datatype = optionalType;
+                    // Some post processing is done on allowableValues that we need to be applied, so share the same
+                    // values
+                    enumProperty.allowableValues = property.allowableValues;
+
+
+                    property.vendorExtensions.put("optionalType", property.datatypeWithEnum);
+                    property.datatype = optionalType;
+                    property.datatypeWithEnum = "java.util.Optional<" + property.datatypeWithEnum + ">";
+                    property.vendorExtensions.put("enumProperty", enumProperty);
+                }
+            } else if (property.isEnum) {
+                property.vendorExtensions.put("enumProperty", property);
+            }
+        }
+
+        // Also fix optional lists up
+        if (isListOrContainer(property)) {
+            String originalType = (String) property.items.vendorExtensions.get("originalType");
+            if (originalType != null) {
+                property.items.vendorExtensions.remove("originalType");
+                property.items.datatypeWithEnum = originalType;
+            }
+        }
+    }
+
+    private boolean isListOrContainer(CodegenProperty property) {
+        return safeValue(property.isListContainer) || safeValue(property.isMapContainer);
     }
 
     @Override
@@ -150,4 +202,79 @@ public class LagomJavaCodegen extends AbstractJavaCodegen {
         return "Generates a Lagom Service Descriptor.";
     }
 
+    @Override
+    public String getTypeDeclaration(Property p) {
+        if (p instanceof ArrayProperty) {
+            ArrayProperty ap = (ArrayProperty) p;
+            Property inner = ap.getItems();
+            if (inner == null) {
+                LOGGER.warn(ap.getName() + "(array property) does not have a proper inner type defined");
+                // TODO maybe better defaulting to StringProperty than returning null
+                return null;
+            }
+            return getSwaggerType(p) + "<" + super.getTypeDeclaration(inner) + ">";
+        } else if (p instanceof MapProperty) {
+            MapProperty mp = (MapProperty) p;
+            Property inner = mp.getAdditionalProperties();
+            if (inner == null) {
+                LOGGER.warn(mp.getName() + "(map property) does not have a proper inner type defined");
+                // TODO maybe better defaulting to StringProperty than returning null
+                return null;
+            }
+            return getSwaggerType(p) + "<String, " + super.getTypeDeclaration(inner) + ">";
+        } else if (!p.getRequired()) {
+            String typeDeclaration = super.getTypeDeclaration(p);
+            p.getVendorExtensions().put("originalType", typeDeclaration);
+            p.getVendorExtensions().put("optionalType", convertToPrimitives(typeDeclaration));
+            return "java.util.Optional<" + typeDeclaration + ">";
+        } else {
+            String typeDeclaration = super.getTypeDeclaration(p);
+            return convertToPrimitives(typeDeclaration);
+        }
+    }
+
+    private String convertToPrimitives(String typeDeclaration) {
+        switch (typeDeclaration) {
+            case "Integer":
+                return "int";
+            case "Long":
+                return "long";
+            case "Float":
+                return "float";
+            case "Double":
+                return "double";
+            case "Boolean":
+                return "boolean";
+        }
+        return typeDeclaration;
+    }
+
+    @Override
+    public String toDefaultValue(Property p) {
+        if (p instanceof ArrayProperty) {
+            return "org.pcollections.TreePVector.empty()";
+        } else if (p instanceof MapProperty) {
+            return "org.pcollections.HashTreePMap.empty()";
+        } else if (!p.getRequired()) {
+            return "java.util.Optional.empty()";
+        } else {
+            return null;
+        }
+    }
+
+
+    @Override
+    public CodegenModel fromModel(String name, Model model, Map<String, Model> allDefinitions) {
+        CodegenModel codegenModel = super.fromModel(name, model, allDefinitions);
+
+        List<CodegenProperty> builderRequiredVars = new ArrayList<>();
+        for (CodegenProperty var: codegenModel.requiredVars) {
+            if (!isListOrContainer(var)) {
+                builderRequiredVars.add(var);
+            }
+        }
+        codegenModel.vendorExtensions.put("builderRequiredVars", builderRequiredVars);
+
+        return codegenModel;
+    }
 }

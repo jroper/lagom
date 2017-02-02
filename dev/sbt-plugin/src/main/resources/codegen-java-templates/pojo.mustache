@@ -1,74 +1,171 @@
-import io.swagger.annotations.*;
-import java.util.Objects;
-{{#description}}@ApiModel(description = "{{{description}}}"){{/description}}
-
-public class {{classname}} {{#parent}}extends {{{parent}}}{{/parent}} {{#serializableModel}}implements Serializable{{/serializableModel}} {
-  {{#vars}}{{#isEnum}}
-
-{{>enumClass}}{{/isEnum}}{{#items.isEnum}}{{#items}}
-
-{{>enumClass}}{{/items}}{{/items.isEnum}}
-  private {{{datatypeWithEnum}}} {{name}} = {{{defaultValue}}};{{/vars}}
-
+{{#description}}@io.swagger.annotations.ApiModel(description = "{{{description}}}"){{/description}}
+{{>generatedAnnotation}}
+public final class {{classname}} {{#parent}}extends {{{parent}}} {{/parent}}{
   {{#vars}}
-  /**{{#description}}
-   * {{{description}}}{{/description}}{{#minimum}}
-   * minimum: {{minimum}}{{/minimum}}{{#maximum}}
-   * maximum: {{maximum}}{{/maximum}}
-   **/
-  public {{classname}} {{name}}({{{datatypeWithEnum}}} {{name}}) {
-    this.{{name}} = {{name}};
-    return this;
-  }
+    {{#isEnum}}
+    {{^isContainer}}
+{{#vendorExtensions}}{{#enumProperty}}{{>modelInnerEnum}}{{/enumProperty}}{{/vendorExtensions}}
+    {{/isContainer}}
+    {{/isEnum}}
+    {{#items.isEnum}}
+      {{#items}}
+      {{^isContainer}}
+{{#vendorExtensions}}{{#enumProperty}}{{>modelInnerEnum}}{{/enumProperty}}{{/vendorExtensions}}
+      {{/isContainer}}
+      {{/items}}
+    {{/items.isEnum}}
+  @com.fasterxml.jackson.annotation.JsonProperty("{{baseName}}")
+  private final {{{datatypeWithEnum}}} {{name}};
 
-  {{#vendorExtensions.extraAnnotation}}{{vendorExtensions.extraAnnotation}}{{/vendorExtensions.extraAnnotation}}
-  @ApiModelProperty({{#example}}example = "{{example}}", {{/example}}{{#required}}required = {{required}}, {{/required}}value = "{{{description}}}")
+  {{/vars}}
+  {{#vars}}
+
+  public {{classname}} with{{nameInCamelCase}}({{{datatypeWithEnum}}} {{name}}) {
+    return new Builder(this).with{{nameInCamelCase}}({{name}}).build();
+  }
+  {{#vendorExtensions}}{{#optionalType}}
+
+  public {{classname}} with{{nameInCamelCase}}({{optionalType}} {{name}}) {
+    return new Builder(this).with{{nameInCamelCase}}({{name}}).build();
+  }
+  {{/optionalType}}{{/vendorExtensions}}
+  {{#isListContainer}}
+
+  public {{classname}} plus{{nameInCamelCase}}Item({{{items.datatypeWithEnum}}} {{name}}Item) {
+    return new Builder(this).plus{{nameInCamelCase}}Item({{name}}Item).build();
+  }
+  {{/isListContainer}}
+  {{#isMapContainer}}
+
+  public {{classname}} plus{{nameInCamelCase}}Item(String key, {{{items.datatypeWithEnum}}} {{name}}Item) {
+    return new Builder(this).plus{{nameInCamelCase}}Item(key, {{name}}Item).build();
+  }
+  {{/isMapContainer}}
+
+   /**
+  {{#description}}
+   * {{{description}}}
+  {{/description}}
+  {{^description}}
+   * Get {{name}}
+  {{/description}}
+  {{#minimum}}
+   * minimum: {{minimum}}
+  {{/minimum}}
+  {{#maximum}}
+   * maximum: {{maximum}}
+  {{/maximum}}
+   * @return {{name}}
+  **/
+  @io.swagger.annotations.ApiModelProperty({{#example}}example = "{{example}}", {{/example}}{{#required}}required = {{required}}, {{/required}}value = "{{{description}}}")
+{{#vendorExtensions.extraAnnotation}}
+  {{{vendorExtensions.extraAnnotation}}}
+{{/vendorExtensions.extraAnnotation}}
   public {{{datatypeWithEnum}}} {{getter}}() {
     return {{name}};
   }
-  public void {{setter}}({{{datatypeWithEnum}}} {{name}}) {
-    this.{{name}} = {{name}};
-  }
-
   {{/vars}}
 
   @Override
-  public boolean equals(Object o) {
+  public boolean equals(java.lang.Object o) {
     if (this == o) {
       return true;
     }
     if (o == null || getClass() != o.getClass()) {
       return false;
-    }
-    {{classname}} {{classVarName}} = ({{classname}}) o;{{#hasVars}}
-    return {{#vars}}Objects.equals({{name}}, {{classVarName}}.{{name}}){{#hasMore}} &&
-        {{/hasMore}}{{^hasMore}};{{/hasMore}}{{/vars}}{{/hasVars}}{{^hasVars}}
-    return true;{{/hasVars}}
+    }{{#hasVars}}
+    {{classname}} {{classVarName}} = ({{classname}}) o;
+    return {{#vars}}Objects.equals(this.{{name}}, {{classVarName}}.{{name}}){{#hasMore}} &&
+        {{/hasMore}}{{/vars}}{{#parent}} &&
+        super.equals(o){{/parent}};{{/hasVars}}{{^hasVars}}
+    return {{#parent}}super.equals(o){{/parent}}{{^parent}}true{{/parent}};{{/hasVars}}
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash({{#vars}}{{name}}{{#hasMore}}, {{/hasMore}}{{/vars}});
+    return Objects.hash({{#vars}}{{name}}{{#hasMore}}, {{/hasMore}}{{/vars}}{{#parent}}{{#hasVars}}, {{/hasVars}}super.hashCode(){{/parent}});
   }
 
   @Override
   public String toString() {
-    StringBuilder sb = new StringBuilder();
-    sb.append("class {{classname}} {\n");
-    {{#parent}}sb.append("    ").append(toIndentedString(super.toString())).append("\n");{{/parent}}
-    {{#vars}}sb.append("    {{name}}: ").append(toIndentedString({{name}})).append("\n");
-    {{/vars}}sb.append("}");
-    return sb.toString();
+    java.util.StringJoiner sj = new java.util.StringJoiner(",", "{{className}}(", ")");
+    {{#vars}}
+    sj.add(toString(this.{{name}}));
+    {{/vars}}
+    return sj.toString();
   }
 
-  /**
-   * Convert the given object to string with each line indented by 4 spaces
-   * (except the first line).
-   */
-  private String toIndentedString(Object o) {
+  private String toString(Object o) {
     if (o == null) {
       return "null";
+    } else {
+      return o.toString();
     }
-    return o.toString().replace("\n", "\n    ");
+  }
+
+  @com.fasterxml.jackson.annotation.JsonCreator(mode = com.fasterxml.jackson.annotation.JsonCreator.Mode.PROPERTIES)
+  public {{classname}}({{#vars}}{{{datatypeWithEnum}}} {{name}}{{^-last}}, {{/-last}}{{/vars}}) {
+    {{#vars}}
+    this.{{name}} = {{name}};
+    {{/vars}}
+  }
+
+  public static Builder builder({{#vendorExtensions}}{{#builderRequiredVars}}{{{datatypeWithEnum}}} {{name}}{{^-last}}, {{/-last}}{{/builderRequiredVars}}{{/vendorExtensions}}) {
+    return new Builder({{#vendorExtensions}}{{#builderRequiredVars}}{{name}}{{^-last}}, {{/-last}}{{/builderRequiredVars}}{{/vendorExtensions}});
+  }
+
+  public static Builder builder({{classname}} model) {
+    return new Builder(model);
+  }
+
+  public static final class Builder {
+    {{#vars}}
+    private {{{datatypeWithEnum}}} {{name}}{{#defaultValue}} = {{defaultValue}}{{/defaultValue}};
+    {{/vars}}
+
+    private Builder({{#vendorExtensions}}{{#builderRequiredVars}}{{{datatypeWithEnum}}} {{name}}{{^-last}}, {{/-last}}{{/builderRequiredVars}}{{/vendorExtensions}}) {
+      {{#vendorExtensions}}{{#builderRequiredVars}}
+      this.{{name}} = {{name}};
+      {{/builderRequiredVars}}{{/vendorExtensions}}
+    }
+
+    private Builder({{classname}} model) {
+      {{#vars}}
+      this.{{name}} = model.{{name}};
+      {{/vars}}
+    }
+
+    public {{classname}} build() {
+      return new {{classname}}({{#vars}}{{name}}{{^-last}}, {{/-last}}{{/vars}});
+    }
+
+    {{#vars}}
+    public Builder with{{nameInCamelCase}}({{{datatypeWithEnum}}} {{name}}) {
+      this.{{name}} = {{name}};
+      return this;
+    }
+    {{#vendorExtensions}}{{#optionalType}}
+
+    public Builder with{{nameInCamelCase}}({{optionalType}} {{name}}) {
+      this.{{name}} = java.util.Optional.of({{name}});
+      return this;
+    }
+    {{/optionalType}}{{/vendorExtensions}}
+    {{#isListContainer}}
+
+    public Builder plus{{nameInCamelCase}}Item({{{items.datatypeWithEnum}}} {{name}}Item) {
+      this.{{name}} = this.{{name}}.plus({{name}}Item);
+      return this;
+    }
+    {{/isListContainer}}
+    {{#isMapContainer}}
+
+    public Builder plus{{nameInCamelCase}}Item(String key, {{{items.datatypeWithEnum}}} {{name}}Item) {
+      this.{{name}} = this.{{name}}.plus(key, {{name}}Item);
+      return this;
+    }
+    {{/isMapContainer}}
+
+    {{/vars}}
   }
 }
