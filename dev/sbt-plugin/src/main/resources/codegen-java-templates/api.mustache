@@ -6,6 +6,7 @@ import org.pcollections.PSequence;
 import java.lang.Optional;
 
 import static com.lightbend.lagom.javadsl.api.Service.*;
+import com.lightbend.lagom.javadsl.api.transport.Method;
 
 {{#imports}}import {{import}};
 {{/imports}}
@@ -17,13 +18,12 @@ public interface {{classname}} extends Service {
     ServiceCall<{{>operationBodyType}}, {{>operationReturnType}}> {{operationId}}({{>methodParameters}});
     {{/operation}}
 
-    @Override
     default Descriptor descriptor() {
         return named("{{classVarName}}").withCalls(
             {{#operation}}
-                restCall(Method.{{httpMethod}}, "{{path}}{{#queryParams}}{{#-first}}?{{/-first}}{{paramName}}{{#hasMore}}&{{/hasMore}}{{/queryParams}}", this::{{operationId}})
+                restCall(Method.{{httpMethod}}, "{{path}}{{#queryParams}}{{#-first}}?{{/-first}}{{paramName}}{{#hasMore}}&{{/hasMore}}{{/queryParams}}", this::{{operationId}}){{^-last}}, {{/-last}}
             {{/operation}}
-        )
+        );
     }
 }
 {{/operations}}

@@ -9,8 +9,11 @@ lazy val root = (project in file("."))
       scalaVersion := "2.11.8",
       version := "0.1.0-SNAPSHOT"
     )),
-    name := "OpenApiDescriptorGen"
-  )
+    name := "OpenApiDescriptorGen",
+    libraryDependencies += "io.swagger" % "swagger-annotations" % "1.5.12"
+
+
+)
 
 
 // TODO : find a way to assert a file is created.

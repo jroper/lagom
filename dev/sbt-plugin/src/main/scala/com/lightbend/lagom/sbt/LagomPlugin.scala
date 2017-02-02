@@ -69,7 +69,8 @@ object LagomJava extends AutoPlugin {
       crossTarget.value / "openapi" / Defaults.nameForSrc(configuration.value.name),
     lagomOpenAPIGenerateDescriptor := LagomOpenApiGenerator.lagomOpenAPIGenerateDescriptorTask.value,
     sourceGenerators <+= lagomOpenAPIGenerateDescriptor,
-    managedSourceDirectories += (target in lagomOpenAPIGenerateDescriptor).value,
+    // TODO: review managedSources
+    managedSourceDirectories += (target in lagomOpenAPIGenerateDescriptor).value / "java",
     watchSources in Defaults.ConfigGlobal <++= sources in lagomOpenAPIGenerateDescriptor,
     lagomWatchDirectories in Defaults.ConfigGlobal ++= unmanagedSourceDirectories.value
   ) ++
