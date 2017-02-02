@@ -266,7 +266,7 @@ public class LagomJavaCodegen extends AbstractJavaCodegen {
         } else if (!p.getRequired()) {
             return "java.util.Optional.empty()";
         } else {
-            return null;
+            return "null";
         }
     }
 
