@@ -1,12 +1,13 @@
 package com.example.pets.impl;
 
 import akka.NotUsed;
-import com.example.auction.item.api.StoreApi;
+import com.example.api.Order;
+import com.example.api.StoreApi;
 import com.lightbend.lagom.javadsl.api.ServiceCall;
+import org.pcollections.HashTreePMap;
+import org.pcollections.PMap;
 
 import javax.inject.Singleton;
-import java.util.HashMap;
-import java.util.Map;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
@@ -14,26 +15,27 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 public class StoreApiImpl implements StoreApi {
 
     @Override
-    public ServiceCall<NotUsed, NotUsed> deleteOrder(Long orderId) {
+    public ServiceCall<NotUsed, NotUsed> deleteOrder(long orderId) {
         System.out.println("deleteOrder");
         return notUsed -> completedFuture(NotUsed.getInstance());
     }
 
     @Override
-    public ServiceCall<NotUsed, Map<String, Integer>> getInventory() {
+    public ServiceCall<NotUsed, PMap<String, Integer>> getInventory() {
         System.out.println("getInventory");
-        return notUsed -> completedFuture(new HashMap<String, Integer>());
+        return notUsed -> completedFuture( HashTreePMap.empty());
     }
 
     @Override
-    ServiceCall<NotUsed, Order> getOrderById(Long orderId) {
+    public ServiceCall<NotUsed, Order> getOrderById(long orderId) {
         System.out.println("getOrderById");
-        return notUsed -> completedFuture(Order);
+        return notUsed -> completedFuture(Order.builder().build());
     }
 
     @Override
     public ServiceCall<Order, Order> placeOrder() {
         System.out.println("placeOrder");
-        return order -> completedFuture(Order);
+        return order -> completedFuture(Order.builder().build());
     }
+
 }

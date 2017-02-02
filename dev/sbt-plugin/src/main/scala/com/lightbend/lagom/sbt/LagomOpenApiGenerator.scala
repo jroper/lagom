@@ -23,10 +23,19 @@ object LagomOpenApiGenerator {
         .setInputSpec(specFile.getAbsolutePath)
         .setOutputDir(outputDirectory.getAbsolutePath)
         .setApiPackage(packageName + ".api")
-        .setInvokerPackage(packageName + ".invoker")
-        .setModelPackage(packageName + ".model")
+        .setModelPackage(packageName + ".api")
 
-      new DefaultGenerator().opts(opts.toClientOptInput).generate().asScala
+      new DefaultGenerator()
+        .opts(opts.toClientOptInput)
+        .generate()
+        .asScala
+        .filter {
+          generatedFile =>
+            {
+              val filename = generatedFile.getAbsolutePath
+              filename.endsWith(".scala") || filename.endsWith(".java")
+            }
+        }
 
     }
   }

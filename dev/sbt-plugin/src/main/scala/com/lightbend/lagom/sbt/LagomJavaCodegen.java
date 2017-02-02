@@ -17,11 +17,6 @@ import org.apache.commons.io.FileUtils;
 import java.io.File;
 import java.io.IOException;
 import java.util.*;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.regex.Matcher;
 
 public class LagomJavaCodegen extends AbstractJavaCodegen {
 
@@ -36,6 +31,7 @@ public class LagomJavaCodegen extends AbstractJavaCodegen {
 
         modelTemplateFiles.put("model.mustache", ".java");
         apiTemplateFiles.put("api.mustache", ".java");
+        //TODO: add doc templates
         modelDocTemplateFiles.remove("model_doc.mustache");
         apiDocTemplateFiles.remove("api_doc.mustache");
 
@@ -51,9 +47,6 @@ public class LagomJavaCodegen extends AbstractJavaCodegen {
         apiTestTemplateFiles.clear(); // TODO: add api test template
         modelTestTemplateFiles.clear(); // TODO: add model test template
 
-        // clear model and api doc template as this codegen
-        // does not support auto-generated markdown doc at the moment
-        //TODO: add doc templates
 
         additionalProperties.put("title", "Lagom Descriptor");
 
