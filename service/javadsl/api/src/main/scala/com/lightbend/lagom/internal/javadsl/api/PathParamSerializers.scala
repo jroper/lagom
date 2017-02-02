@@ -43,3 +43,22 @@ class UnresolvedOptionalPathParamSerializer[Param] extends UnresolvedPathParamSe
     }
   }
 }
+
+class UnresolvedSequencePathParamSerializer[Param] extends UnresolvedPathParamSerializer[PSequence[Param]] {
+  override def resolve(resolver: ServiceCallResolver, typeInfo: Type): PathParamSerializer[PSequence[Param]] = {
+    typeInfo match {
+      case paramType: ParameterizedType if paramType.getRawType == classOf[PSequence[_]] =>
+        val wrappedType = paramType.getActualTypeArguments.apply(0)
+        val subTypeSerializer = resolver.pathParamSerializerFor[Param](wrappedType, wrappedType)
+        PathParamSerializers.sequence[Param](
+          wrappedType.getTypeName,
+          (subTypeSerializer.deserialize _).compose((p: String) => TreePVector.singleton(p)).asJava,
+          (subTypeSerializer.serialize _).andThen {
+          case single if single.size() == 1 => single.get(0)
+          case other                        => throw new IllegalStateException("Can only wrap an sequence serializer around a path param serializer that produces exactly one parameter")
+        }.asJava
+        )
+      case _ => throw new IllegalArgumentException("Unresolved sequence path param serializer can only be resolved against ParamaterizedType descriptors for the PSequence class. This serializer was resolved against: " + typeInfo)
+    }
+  }
+}
