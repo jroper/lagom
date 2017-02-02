@@ -8,8 +8,10 @@ import com.lightbend.lagom.internal.javadsl.server.ResolvedServices;
 import com.lightbend.lagom.internal.javadsl.server.ResolvedServicesProvider;
 import com.lightbend.lagom.internal.javadsl.server.ServiceInfoProvider;
 import com.lightbend.lagom.internal.javadsl.server.JavadslServicesRouter;
+import com.lightbend.lagom.internal.server.openapi.OpenAPIServiceImpl;
 import com.lightbend.lagom.internal.server.status.MetricsServiceImpl;
 
+import com.lightbend.lagom.javadsl.server.openapi.OpenAPIService;
 import com.lightbend.lagom.javadsl.server.status.MetricsService;
 import com.google.inject.Binder;
 import com.lightbend.lagom.javadsl.api.ServiceInfo;
@@ -35,12 +37,16 @@ public interface ServiceGuiceSupport extends ServiceClientGuiceSupport {
         // Bind the service info for the first one passed in
         binder.bind(ServiceInfo.class).toProvider(new ServiceInfoProvider(serviceBindings[0].serviceInterface()));
 
-        // Bind the metrics
+        // Bind the metrics and openapi
         ServiceBinding<MetricsService> metricsServiceBinding = serviceBinding(MetricsService.class, MetricsServiceImpl.class);
         binder.bind(((ClassServiceBinding<?>) metricsServiceBinding).serviceImplementation).asEagerSingleton();
-        ServiceBinding<?>[] allServiceBindings = new ServiceBinding<?>[serviceBindings.length + 1];
+        ServiceBinding<OpenAPIService> openapiServiceBinding = serviceBinding(OpenAPIService.class, OpenAPIServiceImpl.class);
+        binder.bind(((ClassServiceBinding<?>) openapiServiceBinding ).serviceImplementation).asEagerSingleton();
+
+        ServiceBinding<?>[] allServiceBindings = new ServiceBinding<?>[serviceBindings.length + 2];
         System.arraycopy(serviceBindings, 0, allServiceBindings, 0, serviceBindings.length);
-        allServiceBindings[allServiceBindings.length-1] = metricsServiceBinding;
+        allServiceBindings[allServiceBindings.length-2] = metricsServiceBinding;
+        allServiceBindings[allServiceBindings.length-1] = openapiServiceBinding;
 
         // Bind the resolved services
         binder.bind(ResolvedServices.class).toProvider(new ResolvedServicesProvider(allServiceBindings));
