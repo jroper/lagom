@@ -5,10 +5,13 @@ package com.lightbend.lagom.scaladsl.persistence
 
 import scala.collection.immutable
 import akka.event.LoggingAdapter
+
 import scala.util.control.NoStackTrace
 import scala.annotation.tailrec
 import akka.event.Logging
 import akka.actor.ActorRef
+import akka.persistence.query.Offset
+
 import scala.reflect.ClassTag
 
 object PersistentEntity {
@@ -104,13 +107,35 @@ abstract class PersistentEntity {
   private[lagom]type ReadOnlyCommandHandler = PartialFunction[(Command, ReadOnlyCommandContext[Any], State), Unit]
 
   private var _entityId: String = _
+  private var _sequenceNr: Long = 0
+  private var _offset: Offset = Offset.noOffset
 
+  /**
+   * The ID of this persistent entity.
+   */
   final protected def entityId: String = _entityId
+
+  /**
+   * The current sequence number.
+   *
+   * The current sequence number is not set until .
+   */
+  final protected def sequenceNr: Long = _sequenceNr
 
   /**
    * INTERNAL API
    */
-  private[lagom] def internalSetEntityId(id: String) = _entityId = id
+  final private[lagom] def internalSetEntityId(id: String) = _entityId = id
+
+  /**
+   * INTERNAL API
+   */
+  final private[lagom] def internalSetSequenceNr(sequenceNr: Long) = _sequenceNr = sequenceNr
+
+  /**
+   * INTERNAL API
+   */
+  final private[lagom] def internalSetOffset(offset: Offset) = _offset = offset
 
   /**
    * The name of this entity type. It should be unique among the entity

@@ -98,8 +98,8 @@ private[lagom] class PersistentEntityActor(
       state = entity.recoveryCompleted(state)
 
     case evt =>
-      applyEvent(evt.asInstanceOf[E])
       eventCount += 1
+      applyEvent(evt.asInstanceOf[E], eventCount)
   }
 
   private val unhandledEvent: PartialFunction[(E, S), S] = {
@@ -114,8 +114,9 @@ private[lagom] class PersistentEntityActor(
     )
   }
 
-  private def applyEvent(event: E): Unit = {
+  private def applyEvent(event: E, sequenceNr: Long): Unit = {
     val actions = try behavior(state) catch unhandledState
+    entity.internalSetSequenceNr(sequenceNr)
     state = actions.eventHandler.applyOrElse((event, state), unhandledEvent)
   }
 
@@ -152,7 +153,7 @@ private[lagom] class PersistentEntityActor(
           case entity.PersistOne(event, afterPersist) =>
             // apply the event before persist so that validation exception is handled before persisting
             // the invalid event, in case such validation is implemented in the event handler.
-            applyEvent(event.asInstanceOf[E])
+            applyEvent(event.asInstanceOf[E], eventCount + 1)
             persist(tag(event)) { evt =>
               try {
                 eventCount += 1
@@ -172,7 +173,9 @@ private[lagom] class PersistentEntityActor(
             var snap = false
             // apply the event before persist so that validation exception is handled before persisting
             // the invalid event, in case such validation is implemented in the event handler.
-            events.foreach(e => applyEvent(e.asInstanceOf[E]))
+            events.zipWithIndex.foreach {
+              case (e, idx) => applyEvent(e.asInstanceOf[E], eventCount + 1 + idx)
+            }
             persistAll(events.map(tag)) { evt =>
               try {
                 eventCount += 1
