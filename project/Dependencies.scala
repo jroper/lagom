@@ -242,6 +242,7 @@ object Dependencies {
   )
 
   val `api-scaladsl` = libraryDependencies ++= Seq(
+    "com.trueaccord.scalapb" %% "scalapb-runtime" % "0.5.47",
     scalaTest % Test
   )
 
@@ -297,6 +298,7 @@ object Dependencies {
   val `client-javadsl` = libraryDependencies ++= Nil
 
   val `client-scaladsl` = libraryDependencies ++= Seq(
+    "io.grpc" % "grpc-netty" % "1.2.0",
     scalaTest % Test
   )
 
