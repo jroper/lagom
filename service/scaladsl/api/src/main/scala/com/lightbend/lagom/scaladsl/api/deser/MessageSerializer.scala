@@ -3,7 +3,7 @@
  */
 package com.lightbend.lagom.scaladsl.api.deser
 
-import akka.{ Done, NotUsed }
+import akka.{Done, NotUsed}
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
 import com.lightbend.lagom.scaladsl.api.transport._
@@ -13,6 +13,8 @@ import scala.collection.immutable
 import scala.collection.immutable.Seq
 import scala.util.control.NonFatal
 import com.trueaccord.scalapb
+
+import scala.concurrent.Future
 
 trait MessageSerializer[Message, WireFormat] {
   /**
@@ -79,8 +81,17 @@ trait StrictMessageSerializer[Message] extends MessageSerializer[Message, ByteSt
 /**
  * A streamed message serializer, for streams of messages.
  */
-trait StreamedMessageSerializer[Message] extends MessageSerializer[Source[Message, NotUsed], Source[ByteString, NotUsed]] {
+trait StreamedMessageSerializer[Message, M] extends MessageSerializer[Source[Message, M], Source[ByteString, M]] {
   override def isStreamed: Boolean = true
+  def materializedValueType: MaterializedValueType[M]
+}
+
+sealed trait MaterializedValueType[T]
+
+object MaterializedValueType {
+  implicit object FutureTrailers extends MaterializedValueType[Future[ResponseHeader]]
+  implicit object FutureDone extends MaterializedValueType[Future[Done]]
+  implicit object NotUsed extends MaterializedValueType[NotUsed]
 }
 
 object MessageSerializer extends LowPriorityMessageSerializerImplicits {
@@ -266,7 +277,12 @@ trait LowPriorityMessageSerializerImplicits {
       new JsValueFormatSerializer(jsValueMessageSerializer.serializerForRequest)
   }
 
-  implicit def sourceMessageSerializer[Message](implicit delegate: MessageSerializer[Message, ByteString]): StreamedMessageSerializer[Message] = new StreamedMessageSerializer[Message] {
+  // private[lagom] ensures that from a byte code perspective, it's public, and so the JVM will allow existing bytecode
+  // to link to it, but the Scala compiler will not allow newly compiled client code to see it.
+  private[lagom] def sourceMessageSerializer[Message](delegate: MessageSerializer[Message, ByteString]): StreamedMessageSerializer[Message, NotUsed] =
+    this.sourceMessageSerializer(delegate, MaterializedValueType.NotUsed)
+
+  implicit def sourceMessageSerializer[Message, M](implicit delegate: MessageSerializer[Message, ByteString], mvt: MaterializedValueType[M]): StreamedMessageSerializer[Message, M] = new StreamedMessageSerializer[Message, M] {
     private class SourceSerializer(delegate: NegotiatedSerializer[Message, ByteString]) extends NegotiatedSerializer[Source[Message, NotUsed], Source[ByteString, NotUsed]] {
       override def protocol: MessageProtocol = delegate.protocol
       override def serialize(messages: Source[Message, NotUsed]) = messages.map(delegate.serialize)
@@ -276,6 +292,7 @@ trait LowPriorityMessageSerializerImplicits {
       override def deserialize(wire: Source[ByteString, NotUsed]) = wire.map(delegate.deserialize)
     }
 
+    override def materializedValueType = mvt
     override def acceptResponseProtocols: immutable.Seq[MessageProtocol] = delegate.acceptResponseProtocols
 
     override def deserializer(protocol: MessageProtocol): NegotiatedDeserializer[Source[Message, NotUsed], Source[ByteString, NotUsed]] =
