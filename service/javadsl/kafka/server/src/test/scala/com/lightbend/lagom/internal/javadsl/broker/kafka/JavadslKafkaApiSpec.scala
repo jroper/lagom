@@ -5,29 +5,30 @@ package com.lightbend.lagom.internal.javadsl.broker.kafka
 
 import java.util.Optional
 import java.util.concurrent.atomic.AtomicLong
-import java.util.concurrent.{ CompletableFuture, CompletionStage, CountDownLatch, TimeUnit }
+import java.util.concurrent.{CompletableFuture, CompletionStage, CountDownLatch, TimeUnit}
 
 import akka.actor.ActorSystem
 import akka.cluster.Cluster
-import akka.japi.{ Pair => JPair }
-import akka.persistence.query.{ NoOffset, Offset, Sequence }
-import akka.stream.javadsl.{ Source => JSource }
-import akka.stream.scaladsl.{ Flow, Sink, Source, SourceQueue }
-import akka.stream.{ Materializer, OverflowStrategy }
-import akka.{ Done, NotUsed }
+import akka.japi.function.Creator
+import akka.japi.{Pair => JPair}
+import akka.persistence.query.{NoOffset, Offset, Sequence}
+import akka.stream.javadsl.{Source => JSource}
+import akka.stream.scaladsl.{Flow, Sink, Source, SourceQueue}
+import akka.stream.{Materializer, OverflowStrategy}
+import akka.{Done, NotUsed}
 import com.google.inject.AbstractModule
 import com.lightbend.lagom.internal.javadsl.broker.kafka.JavadslKafkaApiSpec._
-import com.lightbend.lagom.internal.javadsl.persistence.OffsetAdapter.{ dslOffsetToOffset, offsetToDslOffset }
+import com.lightbend.lagom.internal.javadsl.persistence.OffsetAdapter.{dslOffsetToOffset, offsetToDslOffset}
 import com.lightbend.lagom.internal.kafka.KafkaLocalServer
 import com.lightbend.lagom.javadsl.api.ScalaService._
 import com.lightbend.lagom.javadsl.api._
-import com.lightbend.lagom.javadsl.api.broker.kafka.{ KafkaProperties, PartitionKeyStrategy }
-import com.lightbend.lagom.javadsl.api.broker.{ Message, Topic }
+import com.lightbend.lagom.javadsl.api.broker.kafka.{KafkaProperties, PartitionKeyStrategy}
+import com.lightbend.lagom.javadsl.api.broker.{Message, Topic}
 import com.lightbend.lagom.javadsl.broker.TopicProducer
 import com.lightbend.lagom.javadsl.broker.kafka.KafkaMetadataKeys
-import com.lightbend.lagom.javadsl.persistence.{ AggregateEvent, AggregateEventTag, PersistentEntityRef, PersistentEntityRegistry, Offset => JOffset }
+import com.lightbend.lagom.javadsl.persistence.{AggregateEvent, AggregateEventTag, PersistentEntity, PersistentEntityRef, PersistentEntityRegistry, Offset => JOffset}
 import com.lightbend.lagom.javadsl.server.ServiceGuiceSupport
-import com.lightbend.lagom.spi.persistence.{ InMemoryOffsetStore, OffsetStore }
+import com.lightbend.lagom.spi.persistence.{InMemoryOffsetStore, OffsetStore}
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest._
 import play.api.inject._
@@ -37,7 +38,7 @@ import scala.collection.mutable
 import scala.compat.java8.FunctionConverters._
 import scala.compat.java8.OptionConverters._
 import scala.concurrent.duration._
-import scala.concurrent.{ Await, ExecutionContext, Promise }
+import scala.concurrent.{Await, ExecutionContext, Promise}
 
 class JavadslKafkaApiSpec extends WordSpecLike
   with Matchers
@@ -426,6 +427,8 @@ object JavadslKafkaApiSpec {
       ???
 
     override def register[C, E, S](entityClass: Class[_ <: com.lightbend.lagom.javadsl.persistence.PersistentEntity[C, E, S]]): Unit = ()
+
+    override def register[C, E, S](entityFactory: Creator[_ <: PersistentEntity[C, E, S]]): Unit = ()
   }
 
 }

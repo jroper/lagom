@@ -5,17 +5,18 @@ package com.lightbend.lagom.internal.javadsl.persistence
 
 import java.net.URLEncoder
 import java.util.Optional
-import javax.inject.{ Inject, Provider, Singleton }
 
+import javax.inject.{ Inject, Provider, Singleton }
 import akka.actor.ActorSystem
 import akka.cluster.Cluster
 import akka.cluster.sharding.ClusterShardingSettings
 import akka.stream.Materializer
-import com.google.inject.Injector
 import com.lightbend.lagom.internal.persistence.ReadSideConfig
 import com.lightbend.lagom.internal.persistence.cluster.{ ClusterDistribution, ClusterDistributionSettings, ClusterStartupTask }
 import com.lightbend.lagom.javadsl.persistence._
 import com.typesafe.config.Config
+import play.api.inject.Injector
+
 import scala.collection.JavaConverters._
 import scala.compat.java8.FutureConverters._
 import scala.compat.java8.OptionConverters._
@@ -41,41 +42,50 @@ private[lagom] class ReadSideImpl @Inject() (
     processorClass: Class[_ <: ReadSideProcessor[Event]]
   ): Unit = {
 
-    val processorFactory: () => ReadSideProcessor[Event] =
-      () => injector.getInstance(processorClass)
+    val processorFactory: () => Context[ReadSideProcessor[Event]] =
+      Context.noContext(() => injector.instanceOf(processorClass))
 
     registerFactory(processorFactory, processorClass)
   }
 
   private[lagom] def registerFactory[Event <: AggregateEvent[Event]](
-    processorFactory: () => ReadSideProcessor[Event],
+    processorFactory: () => Context[ReadSideProcessor[Event]],
     clazz:            Class[_]
   ) = {
 
     // Only run if we're configured to run on this role
     if (config.role.forall(Cluster(system).selfRoles.contains)) {
       // try to create one instance to fail fast (e.g. wrong constructor)
+      val context = processorFactory()
       val dummyProcessor = try {
-        processorFactory()
+        context.createContextualObject()
       } catch {
         case NonFatal(e) => throw new IllegalArgumentException("Cannot create instance of " +
           s"[${clazz.getName}]", e)
       }
 
-      val readSideName = name.asScala.fold("")(_ + "-") + dummyProcessor.readSideName()
+      val readSideName = name.asScala.fold("")(_ + "-") + context.apply(dummyProcessor.readSideName())
       val encodedReadSideName = URLEncoder.encode(readSideName, "utf-8")
-      val tags = dummyProcessor.aggregateTags().asScala
+      val tags = context.apply(dummyProcessor.aggregateTags().asScala)
       val entityIds = tags.map(_.tag)
       val eventClass = tags.headOption match {
         case Some(tag) => tag.eventType
         case None      => throw new IllegalArgumentException(s"ReadSideProcessor ${clazz.getName} returned 0 tags")
       }
+      context.destroy()
 
       val globalPrepareTask: ClusterStartupTask =
         ClusterStartupTask(
           system,
           s"readSideGlobalPrepare-$encodedReadSideName",
-          () => processorFactory().buildHandler().globalPrepare().toScala,
+          () => {
+            val context = processorFactory()
+            try {
+              context.apply(context.createContextualObject().buildHandler().globalPrepare().toScala)
+            } finally {
+              context.destroy()
+            }
+          },
           config.globalPrepareTimeout,
           config.role,
           config.minBackoff,

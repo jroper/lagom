@@ -6,20 +6,20 @@ package com.lightbend.lagom.internal.javadsl.persistence.cassandra
 import java.util
 import java.util.concurrent.{ CompletableFuture, CompletionStage }
 import java.util.function.{ BiFunction, Function, Supplier }
-import javax.inject.{ Inject, Singleton }
 
+import javax.inject.{ Inject, Singleton }
 import akka.Done
 import akka.actor.ActorSystem
 import akka.event.Logging
 import com.datastax.driver.core.BoundStatement
-import com.google.inject.Injector
-import com.lightbend.lagom.internal.javadsl.persistence.ReadSideImpl
+import com.lightbend.lagom.internal.javadsl.persistence.{ Context, ReadSideImpl }
 import com.lightbend.lagom.internal.persistence.cassandra.CassandraOffsetStore
 import com.lightbend.lagom.javadsl.persistence.ReadSideProcessor.ReadSideHandler
 import com.lightbend.lagom.javadsl.persistence._
 import com.lightbend.lagom.javadsl.persistence.cassandra.CassandraReadSide.ReadSideHandlerBuilder
 import com.lightbend.lagom.javadsl.persistence.cassandra.{ CassandraReadSide, CassandraReadSideProcessor, CassandraSession }
 import org.pcollections.{ PSequence, TreePVector }
+import play.api.inject.Injector
 
 /**
  * Internal API
@@ -37,9 +37,9 @@ private[lagom] final class CassandraReadSideImpl @Inject() (
   ): Unit = {
 
     readSide.registerFactory(
-      () => {
+      Context.noContext(() => {
 
-        val processor = injector.getInstance(processorClass)
+        val processor = injector.instanceOf(processorClass)
 
         new ReadSideProcessor[Event] {
           override def buildHandler(): ReadSideHandler[Event] = {
@@ -52,7 +52,7 @@ private[lagom] final class CassandraReadSideImpl @Inject() (
 
           override def readSideName(): String = Logging.simpleName(processorClass)
         }
-      }, processorClass
+      }), processorClass
     )
   }
 

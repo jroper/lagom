@@ -6,19 +6,18 @@ package com.lightbend.lagom.internal.javadsl.persistence
 import java.util.Optional
 import java.util.concurrent.{ CompletableFuture, CompletionStage, ConcurrentHashMap, TimeUnit }
 
-import akka.actor.{ ActorSystem, CoordinatedShutdown }
+import akka.actor.ActorSystem
 import akka.cluster.Cluster
 import akka.cluster.sharding.{ ClusterSharding, ClusterShardingSettings, ShardRegion }
 import akka.event.Logging
 import akka.japi.Pair
-import akka.pattern.ask
 import akka.persistence.query.scaladsl.EventsByTagQuery
 import akka.persistence.query.{ PersistenceQuery, Offset => AkkaOffset }
 import akka.stream.javadsl
-import akka.util.Timeout
 import akka.{ Done, NotUsed }
-import com.google.inject.Injector
 import com.lightbend.lagom.javadsl.persistence._
+import play.api.inject.Injector
+
 import scala.concurrent.duration.{ FiniteDuration, _ }
 import scala.util.control.NonFatal
 import scala.compat.java8.OptionConverters._
@@ -78,7 +77,7 @@ class AbstractPersistentEntityRegistry(system: ActorSystem, injector: Injector) 
   override def register[C, E, S](entityClass: Class[_ <: PersistentEntity[C, E, S]]): Unit = {
 
     val entityFactory: () => PersistentEntity[C, E, S] =
-      () => injector.getInstance(entityClass)
+      () => injector.instanceOf(entityClass)
 
     // try to create one instance to fail fast (e.g. wrong constructor)
     val entityTypeName = try {
@@ -88,6 +87,32 @@ class AbstractPersistentEntityRegistry(system: ActorSystem, injector: Injector) 
         s"[${entityClass.getName}]. The class must extend PersistentEntity and have a " +
         "constructor without parameters or annotated with @Inject.", e)
     }
+
+    doRegister(Context.noContext(entityFactory), entityClass, entityTypeName)
+  }
+
+  private[lagom] def register[C, E, S](
+    entityContextFactory: () => Context[PersistentEntity[C, E, S]]
+  ): Unit = {
+    val ctx = entityContextFactory()
+    // try to create one instance to fail fast (e.g. wrong constructor)
+    val (entityTypeName, entityClass) = try {
+      val entity = ctx.createContextualObject()
+      ctx {
+        (entity.entityTypeName, entity.getClass)
+      }
+    } catch {
+      case NonFatal(e) => throw new IllegalArgumentException("Cannot create instance of " +
+        "the entity using the passed in factory.", e)
+    } finally {
+      ctx.destroy()
+    }
+
+    doRegister(entityContextFactory, entityClass, entityTypeName)
+  }
+
+  private def doRegister[C, E, S](entityContextFactory: () => Context[PersistentEntity[C, E, S]], entityClass: Class[_],
+                                  entityTypeName: String): Unit = {
 
     // detect non-unique short class names, since that is used as sharding type name
     val alreadyRegistered = registeredTypeNames.putIfAbsent(entityTypeName, entityClass)
@@ -101,7 +126,7 @@ class AbstractPersistentEntityRegistry(system: ActorSystem, injector: Injector) 
 
     if (role.forall(Cluster(system).selfRoles.contains)) {
       val entityProps = PersistentEntityActor.props(
-        persistenceIdPrefix = entityTypeName, Optional.empty(), entityFactory, snapshotAfter, passivateAfterIdleTimeout,
+        persistenceIdPrefix = entityTypeName, Optional.empty(), entityContextFactory, snapshotAfter, passivateAfterIdleTimeout,
         journalPluginId, snapshotPluginId
       )
       sharding.start(prependName(entityTypeName), entityProps, shardingSettings, extractEntityId, extractShardId)

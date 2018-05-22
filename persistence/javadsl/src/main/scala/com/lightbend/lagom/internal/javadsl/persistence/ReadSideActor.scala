@@ -24,7 +24,7 @@ private[lagom] object ReadSideActor {
     clazz:              Class[Event],
     globalPrepareTask:  ClusterStartupTask,
     eventStreamFactory: (AggregateEventTag[Event], Offset) => Source[akka.japi.Pair[Event, Offset], NotUsed],
-    processor:          () => ReadSideProcessor[Event]
+    processor:          () => Context[ReadSideProcessor[Event]]
   )(implicit mat: Materializer) = {
     Props(
       classOf[ReadSideActor[Event]],
@@ -49,7 +49,7 @@ private[lagom] class ReadSideActor[Event <: AggregateEvent[Event]](
   clazz:              Class[Event],
   globalPrepareTask:  ClusterStartupTask,
   eventStreamFactory: (AggregateEventTag[Event], Offset) => Source[akka.japi.Pair[Event, Offset], NotUsed],
-  processorFactory:   () => ReadSideProcessor[Event]
+  processorFactory:   () => Context[ReadSideProcessor[Event]]
 )(implicit mat: Materializer) extends Actor with ActorLogging {
 
   import ReadSideActor._
@@ -58,8 +58,11 @@ private[lagom] class ReadSideActor[Event <: AggregateEvent[Event]](
 
   private var shutdown: Option[KillSwitch] = None
 
+  private val ctx = processorFactory()
+
   override def postStop: Unit = {
     shutdown.foreach(_.shutdown())
+    ctx.destroy()
   }
 
   def receive = {
@@ -79,7 +82,7 @@ private[lagom] class ReadSideActor[Event <: AggregateEvent[Event]](
           config.maxBackoff,
           config.randomBackoffFactor
         ) { () =>
-          val handler: ReadSideProcessor.ReadSideHandler[Event] = processorFactory().buildHandler()
+          val handler: ReadSideProcessor.ReadSideHandler[Event] = ctx.apply(ctx.createContextualObject().buildHandler())
           val futureOffset = handler.prepare(tag).toScala
           scaladsl.Source
             .fromFuture(futureOffset)
