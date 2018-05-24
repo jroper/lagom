@@ -81,9 +81,9 @@ def common: Seq[Setting[_]] = releaseSettings ++ bintraySettings ++ Seq(
 )
 
 def bintraySettings: Seq[Setting[_]] = Seq(
-  bintrayOrganization := Some("lagom"),
-  bintrayRepository := "sbt-plugin-releases",
-  bintrayPackage := "lagom-sbt-plugin",
+  bintrayOrganization := Some("jroper"),
+  bintrayRepository := "maven",
+  bintrayPackage := "lagom",
   bintrayReleaseOnPublish := false
 )
 
@@ -369,7 +369,7 @@ lazy val root = (project in file("."))
   .settings(UnidocRoot.settings(javadslProjects.map(Project.projectToRef), scaladslProjects.map(Project.projectToRef)): _*)
   .aggregate((javadslProjects ++ scaladslProjects ++ coreProjects ++ otherProjects ++ sbtScriptedProjects).map(Project.projectToRef): _*)
 
-def RuntimeLibPlugins = AutomateHeaderPlugin && Sonatype && PluginsAccessor.exclude(BintrayPlugin) && Unidoc
+def RuntimeLibPlugins = AutomateHeaderPlugin && BintrayPlugin && PluginsAccessor.exclude(Sonatype) && Unidoc
 def SbtPluginPlugins = AutomateHeaderPlugin && BintrayPlugin && PluginsAccessor.exclude(Sonatype)
 
 lazy val api = (project in file("service/core/api"))

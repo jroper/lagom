@@ -31,7 +31,7 @@ private[lagom] object PersistentEntityActor {
     snapshotAfter:             Optional[Int],
     passivateAfterIdleTimeout: Duration,
     journalPluginId:           String,
-    snapshotPluginId:          String,
+    snapshotPluginId:          String
   ): Props =
     Props(new PersistentEntityActor(persistenceIdPrefix, entityId, entityContextFactory(), snapshotAfter.orElse(0),
       passivateAfterIdleTimeout, journalPluginId, snapshotPluginId))
